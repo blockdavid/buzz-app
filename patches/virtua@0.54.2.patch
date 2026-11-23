@@ -1,5 +1,5 @@
 diff --git a/lib/index.js b/lib/index.js
-index b4a8a1f5d7065a6acb9344cd3f3a07e1c428c172..1848f5f68295f01f32484d2dd0b8f02715129c13 100644
+index b4a8a1f5d7065a6acb9344cd3f3a07e1c428c172..9c423d95ef1b58888e3a3509137b67a81a292414 100644
 --- a/lib/index.js
 +++ b/lib/index.js
 @@ -6,6 +6,10 @@ import { jsx as c } from "react/jsx-runtime";
@@ -58,7 +58,7 @@ index b4a8a1f5d7065a6acb9344cd3f3a07e1c428c172..1848f5f68295f01f32484d2dd0b8f027
                  x && (o = d(o, x[0]), n = h(n, x[1]));
              }
              return [ o, d(n, l() - 1) ];
-@@ -77,13 +98,24 @@ a), x = e => h(e.t(), e.o()), I = (e, t, o, n) => {
+@@ -77,13 +98,28 @@ a), x = e => h(e.t(), e.o()), I = (e, t, o, n) => {
                  }
 
                case 2:
@@ -77,14 +77,19 @@ index b4a8a1f5d7065a6acb9344cd3f3a07e1c428c172..1848f5f68295f01f32484d2dd0b8f027
                case 3:
                  if (n.length) {
                      const e = M(c), t = o(e);
-                     r(n, $), C(o(e) - t), d = 3, f = !0;
+-                    r(n, $), C(o(e) - t), d = 3, f = !0;
++                    // Initial measurement ends once measured rows fill the
++                    // viewport. Rows start below the start margin, so they fill
++                    // it at its size less that margin: until then no buffer
++                    // applies, and rows past that point would never mount.
++                    r(n, h(0, $ - p)), C(o(e) - t), d = 3, f = !0;
 +                    // A scroll-end deferred above lands once the shift's
 +                    // measurements are in.
 +                    shiftIdle && 2 === z && !shiftPending() && (z = 0, shiftEnd = 0, shiftIdle = !1);
                  }
                  break;
 
-@@ -94,6 +126,17 @@ a), x = e => h(e.t(), e.o()), I = (e, t, o, n) => {
+@@ -94,6 +130,17 @@ a), x = e => h(e.t(), e.o()), I = (e, t, o, n) => {
                case 5:
                  if (n !== l()) {
                      if (c) {
@@ -102,7 +107,7 @@ index b4a8a1f5d7065a6acb9344cd3f3a07e1c428c172..1848f5f68295f01f32484d2dd0b8f027
                          const e = s();
                          i(n, !0), C(s() - e), z = 2;
                      } else i(n);
-@@ -406,18 +449,24 @@ a), x = e => h(e.t(), e.o()), I = (e, t, o, n) => {
+@@ -406,18 +453,24 @@ a), x = e => h(e.t(), e.o()), I = (e, t, o, n) => {
          }
      };
  }, j = (e, t, o, n, r, s, l, i) => {
@@ -130,7 +135,7 @@ index b4a8a1f5d7065a6acb9344cd3f3a07e1c428c172..1848f5f68295f01f32484d2dd0b8f027
      }, b = t => {
          e.T() && !t.ctrlKey && (r ? t.deltaX : t.deltaY) && (a = !0);
      }, R = () => {
-@@ -437,6 +486,9 @@ a), x = e => h(e.t(), e.o()), I = (e, t, o, n) => {
+@@ -437,6 +490,9 @@ a), x = e => h(e.t(), e.o()), I = (e, t, o, n) => {
          F: () => {
              m() !== e.k() ? I() : i && e.h(7, i());
          },
@@ -140,7 +145,7 @@ index b4a8a1f5d7065a6acb9344cd3f3a07e1c428c172..1848f5f68295f01f32484d2dd0b8f027
          D: () => {
              o.removeEventListener("scroll", I), o.removeEventListener("wheel", b), o.removeEventListener("touchstart", R), 
              o.removeEventListener("touchend", O), o.removeEventListener("touchcancel", O), S(f);
-@@ -444,12 +496,27 @@ a), x = e => h(e.t(), e.o()), I = (e, t, o, n) => {
+@@ -444,12 +500,27 @@ a), x = e => h(e.t(), e.o()), I = (e, t, o, n) => {
          K: () => {
              const [t, o] = e.M();
              if (t) {
@@ -172,7 +177,7 @@ index b4a8a1f5d7065a6acb9344cd3f3a07e1c428c172..1848f5f68295f01f32484d2dd0b8f027
              }
              return o;
          },
-@@ -464,7 +531,7 @@ a), x = e => h(e.t(), e.o()), I = (e, t, o, n) => {
+@@ -464,7 +535,7 @@ a), x = e => h(e.t(), e.o()), I = (e, t, o, n) => {
                          for (let [o, n] = e.$(0); o <= n; o++) if (t.A(o)) return;
                          f();
                      }
@@ -181,7 +186,7 @@ index b4a8a1f5d7065a6acb9344cd3f3a07e1c428c172..1848f5f68295f01f32484d2dd0b8f027
                  }
              };
              if (n && e.h(9, o()), !s) {
-@@ -478,7 +545,27 @@ a), x = e => h(e.t(), e.o()), I = (e, t, o, n) => {
+@@ -478,7 +549,27 @@ a), x = e => h(e.t(), e.o()), I = (e, t, o, n) => {
          }
      };
  }, G = (e, t, o) => {
@@ -210,7 +215,7 @@ index b4a8a1f5d7065a6acb9344cd3f3a07e1c428c172..1848f5f68295f01f32484d2dd0b8f027
      const i = /* @__PURE__ */ new Map, c = /* @__PURE__ */ new WeakMap, f = J(s => {
          const l = [], f = [];
          for (const {target: a, contentRect: {width: u, height: d}} of s) if (a === n) (u || d) && (r.F(), 
-@@ -492,7 +579,13 @@ a), x = e => h(e.t(), e.o()), I = (e, t, o, n) => {
+@@ -492,7 +583,13 @@ a), x = e => h(e.t(), e.o()), I = (e, t, o, n) => {
      });
      return {
          U(l, i = l.parentElement) {
@@ -225,7 +230,7 @@ index b4a8a1f5d7065a6acb9344cd3f3a07e1c428c172..1848f5f68295f01f32484d2dd0b8f027
                  const e = o ? "overflowX" : "overflowY", t = i.style, n = t[e];
                  t[e] = "hidden", w(() => {
                      t[e] = n;
-@@ -500,7 +593,9 @@ a), x = e => h(e.t(), e.o()), I = (e, t, o, n) => {
+@@ -500,7 +597,9 @@ a), x = e => h(e.t(), e.o()), I = (e, t, o, n) => {
              }), s[1](!0);
          },
          R() {
@@ -236,7 +241,7 @@ index b4a8a1f5d7065a6acb9344cd3f3a07e1c428c172..1848f5f68295f01f32484d2dd0b8f027
          },
          Z: (e, t) => (i.set(e, t), f.j(e), () => {
              i.delete(e), f.G(e);
-@@ -602,7 +697,8 @@ a), x = e => h(e.t(), e.o()), I = (e, t, o, n) => {
+@@ -602,7 +701,8 @@ a), x = e => h(e.t(), e.o()), I = (e, t, o, n) => {
          },
          U(c, a = c.parentElement) {
              f.j(r = a);
@@ -246,7 +251,7 @@ index b4a8a1f5d7065a6acb9344cd3f3a07e1c428c172..1848f5f68295f01f32484d2dd0b8f027
                  const e = o ? "overflowX" : "overflowY", t = a.style, n = t[e];
                  t[e] = "hidden", w(() => {
                      t[e] = n;
-@@ -1271,4 +1367,3 @@ a), x = e => h(e.t(), e.o()), I = (e, t, o, n) => {
+@@ -1271,4 +1371,3 @@ a), x = e => h(e.t(), e.o()), I = (e, t, o, n) => {
  });
 
  export { ce as VGrid, ne as VList, ue as VMasonry, oe as Virtualizer, he as WindowMasonry, re as WindowVirtualizer };

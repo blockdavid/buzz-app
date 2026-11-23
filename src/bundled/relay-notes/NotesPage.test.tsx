@@ -1154,8 +1154,8 @@ it("pages beyond the real profile directory budget and retains evicted agent cla
   const { createProfileDirectory } = await import(
     "../../features/relay/profile-directory"
   );
-  const entries = Array.from({ length: 1101 }, (_, i) => ({
-    ...note(`Entry ${i}`, (i + 1).toString(16).padStart(64, "0"), 2000 - i),
+  const entries = Array.from({ length: 11_050 }, (_, i) => ({
+    ...note(`Entry ${i}`, (i + 1).toString(16).padStart(64, "0"), 20_000 - i),
     id: (i + 1).toString(16).padStart(64, "0"),
   }));
   const directory = createProfileDirectory({
@@ -1179,7 +1179,7 @@ it("pages beyond the real profile directory budget and retains evicted agent cla
     let page = 0;
     f.readPage.mockImplementation(async ([filter]) => {
       if (filter?.authors) return { events: [], relayCount: 0 };
-      const events = entries.slice(page * 100, ++page * 100);
+      const events = entries.slice(page * 1000, ++page * 1000);
       return { events, relayCount: events.length };
     });
     render(
@@ -1199,7 +1199,7 @@ it("pages beyond the real profile directory budget and retains evicted agent cla
         else expect(more).not.toHaveAttribute("aria-busy", "true");
       });
     }
-    await screen.findByRole("button", { name: "Open Agent 1100 folder" });
+    await screen.findByRole("button", { name: "Open Agent 11049 folder" });
     expect(directory.queries.snapshot().has(entries[0]?.pubkey ?? "")).toBe(
       false,
     );

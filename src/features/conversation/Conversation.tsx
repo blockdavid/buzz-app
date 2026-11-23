@@ -1,3 +1,4 @@
+import { TraceProfiler } from "../developer/TraceProfiler";
 import { hostComposerProvenance } from "../messages/mention-draft";
 import { ActivityIndicatorPresentation } from "./typing-presentation";
 import {
@@ -312,13 +313,15 @@ export function ConversationTimeline(
   } = useConversation();
   // Solo agents answer at top level: show existing threads, start none.
   return (
-    <ChannelTimeline
-      queries={session}
-      viewer={session.viewer}
-      startsThreads={!soloConversation}
-      {...shared}
-      {...props}
-    />
+    <TraceProfiler id="timeline">
+      <ChannelTimeline
+        queries={session}
+        viewer={session.viewer}
+        startsThreads={!soloConversation}
+        {...shared}
+        {...props}
+      />
+    </TraceProfiler>
   );
 }
 

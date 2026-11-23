@@ -4604,3 +4604,9 @@ html[data-keyboard-navigation]
   display: flex;
   margin-top: var(--space-1);
 }
+
+/* A visit's first screen is laid out hidden until it is complete. Opacity,
+   not visibility, so the history can still take focus as it opens. */
+.feed[data-first-screen="pending"] {
+  opacity: 0;
+}
