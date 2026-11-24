@@ -45,6 +45,7 @@ import {
   type ConversationTab,
 } from "./useChannelTabState";
 import { useConversationTabs } from "./useConversationTabs";
+import { openFromTab } from "./placement";
 import { ConversationTab as ConversationReader } from "./ConversationTab";
 import { panelOpening } from "../../features/panels/service";
 import { coveringDock, useCoveredByDock } from "./useCoveredByDock";
@@ -120,7 +121,7 @@ export function PageTabs({
     leadingIds: [],
     continuingVisit: continuing.current,
     isLive: () => true,
-    openLink(url) {
+    openLink(url, pane) {
       const viewer = session.viewer;
       const target =
         viewer &&
@@ -130,7 +131,7 @@ export function PageTabs({
           communityOrigin: scope.slice(0, -(viewer.length + 1)),
         });
       if (!target) return false;
-      void host.navigation.open(target);
+      openFromTab(host.navigation, target, pane);
       return true;
     },
     fallbackFocus,
