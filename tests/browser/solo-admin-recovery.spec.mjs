@@ -141,12 +141,19 @@ test("an expired setup no longer blocks the chat's next message", async ({
       exact: true,
     }),
   ).toBeVisible();
-  await composer.fill("Continue with current roles");
-  await composer.press("Enter");
-  await expect.poll(() => published(app, 9).length).toBe(1);
-  expect(published(app, 9)[0].event.content).toBe(
+  const send = page.getByRole("button", { name: "Send message", exact: true });
+  // Each message sends, so the chat never fills with failed rows.
+  for (const [index, text] of [
     "Continue with current roles",
-  );
+    "And keep going",
+  ].entries()) {
+    await composer.fill(text);
+    await expect(send).toBeEnabled();
+    await send.click();
+    await expect.poll(() => published(app, 9).length).toBe(index + 1);
+    expect(published(app, 9)[index].event.content).toBe(text);
+  }
+  await expect(page.getByText("Couldn’t send this message.")).toHaveCount(1);
   expect(published(app, 9000)).toEqual([]);
   await page.screenshot({
     path: info.outputPath("EXPIRED_SETUP_NEXT_MESSAGE.png"),
