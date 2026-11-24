@@ -86,7 +86,7 @@ async function fixture(signedIn = true, openIdentity?: () => void) {
       email,
       canUseRemoteAgents,
       canUseBuilderlabDecisions: false,
-      canUseBuilderlabTranscription: false,
+      canUseHostedTranscription: false,
     },
   }));
   const release = vi.fn();
@@ -287,7 +287,7 @@ it.each(["cancel", "timeout"] as const)(
           email: "a@example.com",
           canUseRemoteAgents: true,
           canUseBuilderlabDecisions: false,
-          canUseBuilderlabTranscription: false,
+          canUseHostedTranscription: false,
         },
       });
       h.session.dispose();
@@ -713,7 +713,7 @@ it("recovers an unloaded no-access account through logout and normal sign-in, re
             email: "a@example.com",
             canUseRemoteAgents: true,
             canUseBuilderlabDecisions: false,
-            canUseBuilderlabTranscription: false,
+            canUseHostedTranscription: false,
           },
         }),
       );
@@ -1106,7 +1106,7 @@ it("shows the remote execution hint only while the shared account is signed in",
           email: "a@example.com",
           canUseRemoteAgents: true,
           canUseBuilderlabDecisions: false,
-          canUseBuilderlabTranscription: false,
+          canUseHostedTranscription: false,
         },
       });
       await signIn.mock.results[0]?.value;

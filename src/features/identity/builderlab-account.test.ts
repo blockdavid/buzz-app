@@ -30,7 +30,7 @@ const credential: Credential = {
     email: "a@example.com",
     canUseRemoteAgents: false,
     canUseBuilderlabDecisions: false,
-    canUseBuilderlabTranscription: false,
+    canUseHostedTranscription: false,
   },
 };
 const pubkey = "ab".repeat(32);

@@ -80,7 +80,7 @@ export function builderlabSpeechProvider(
       : undefined;
   // Only Builderlab's explicit yes enables it; otherwise no call goes there.
   const permitted = (credential: Credential) =>
-    credential.account.canUseBuilderlabTranscription;
+    credential.account.canUseHostedTranscription;
   return {
     id: "builderlab",
     label: "Builderlab",
@@ -136,7 +136,7 @@ export function builderlabSpeechProvider(
           />
           {state.status === "signed-in" &&
             !state.checkingPermissions &&
-            !state.account?.canUseBuilderlabTranscription && (
+            !state.account?.canUseHostedTranscription && (
               <p role="status" className="text-body-sm text-secondary">
                 Builderlab speech to text is unavailable for this account.
               </p>

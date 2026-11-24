@@ -282,7 +282,7 @@ the token never reaches the webview. A 401 there refuses only that call, and
 native asks the adapter once whether the session still stands.
 
 It offers Builderlab as a speech to text provider the same way, reading
-`capabilities.can_use_builderlab_transcription`. Native `speech_connect` posts
+`capabilities.can_use_hosted_transcription`. Native `speech_connect` posts
 the host's WebRTC offer to `v3/builderlab/transcription/calls` with the same
 sign-in as `decide` and the community in `x-buzz-community`, and returns
 Builderlab's SDP answer; it names no model, so Builderlab chooses one. Audio

@@ -19,7 +19,7 @@ const credential = (revision: string, transcription = true): Credential => ({
     email: "a@example.com",
     canUseRemoteAgents: true,
     canUseBuilderlabDecisions: true,
-    canUseBuilderlabTranscription: transcription,
+    canUseHostedTranscription: transcription,
   },
 });
 const request = {

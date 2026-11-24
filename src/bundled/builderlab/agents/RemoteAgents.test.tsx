@@ -52,7 +52,7 @@ async function fixture(canUseRemoteAgents = true) {
         email: "a@example.com",
         canUseRemoteAgents,
         canUseBuilderlabDecisions: false,
-        canUseBuilderlabTranscription: false,
+        canUseHostedTranscription: false,
       },
     }),
     undefined,

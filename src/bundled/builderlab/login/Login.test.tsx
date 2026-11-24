@@ -18,7 +18,7 @@ const credential: Credential = {
     email: "a@example.com",
     canUseRemoteAgents: true,
     canUseBuilderlabDecisions: false,
-    canUseBuilderlabTranscription: false,
+    canUseHostedTranscription: false,
   },
 };
 it("shows a desktop requirement in the browser", () => {
@@ -69,7 +69,7 @@ it("shows a signed-in confirmation when email is unavailable", async () => {
       email: "",
       canUseRemoteAgents: true,
       canUseBuilderlabDecisions: false,
-      canUseBuilderlabTranscription: false,
+      canUseHostedTranscription: false,
     },
   }));
   render(<Login session={session} available active={() => true} />);

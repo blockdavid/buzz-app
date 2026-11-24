@@ -135,7 +135,7 @@ async function fixture({
       email: "a@example.com",
       canUseRemoteAgents: false,
       canUseBuilderlabDecisions: false,
-      canUseBuilderlabTranscription: false,
+      canUseHostedTranscription: false,
     },
   }));
   const dispose = startKnownCommunitiesSync({
@@ -309,7 +309,7 @@ it("halts on a 200 list the real client cannot read, forgetting no membership", 
         email: "a@example.com",
         canUseRemoteAgents: false,
         canUseBuilderlabDecisions: false,
-        canUseBuilderlabTranscription: false,
+        canUseHostedTranscription: false,
       },
     }),
     undefined,

@@ -457,7 +457,7 @@ it("refreshes only capabilities through the broker while preserving its owner an
       email: "A@example.com",
       canUseRemoteAgents: false,
       canUseBuilderlabDecisions: true,
-      canUseBuilderlabTranscription: false,
+      canUseHostedTranscription: false,
     });
     expect(h.session.credential()).toBe(owner);
     expect(h.session.viewerSession()).toBe(viewer);

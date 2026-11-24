@@ -100,7 +100,7 @@ const login = {
     email: "member@example.com",
     canUseRemoteAgents: true,
     canUseBuilderlabDecisions: false,
-    canUseBuilderlabTranscription: false,
+    canUseHostedTranscription: false,
   },
 } as const;
 const builderlab = {

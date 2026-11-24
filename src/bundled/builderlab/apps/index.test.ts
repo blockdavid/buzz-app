@@ -29,7 +29,7 @@ async function setup(
       email: "",
       canUseRemoteAgents,
       canUseBuilderlabDecisions: false,
-      canUseBuilderlabTranscription: false,
+      canUseHostedTranscription: false,
     },
   }));
   await session.signIn();

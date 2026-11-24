@@ -22,7 +22,7 @@ const credential = (revision: string): Credential =>
       email: "a@example.com",
       canUseRemoteAgents: false,
       canUseBuilderlabDecisions: false,
-      canUseBuilderlabTranscription: false,
+      canUseHostedTranscription: false,
     }),
   });
 

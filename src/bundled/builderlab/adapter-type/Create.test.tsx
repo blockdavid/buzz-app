@@ -50,7 +50,7 @@ async function fixture(signedIn = true, recommended?: unknown) {
       email: "a@example.com",
       canUseRemoteAgents: true,
       canUseBuilderlabDecisions: false,
-      canUseBuilderlabTranscription: false,
+      canUseHostedTranscription: false,
     },
   }));
   const session = createTestSession(acquire, undefined, {
@@ -292,7 +292,7 @@ it("moves an untouched recommendation to a newly signed-in account", async () =>
       email: "b@example.com",
       canUseRemoteAgents: true,
       canUseBuilderlabDecisions: false,
-      canUseBuilderlabTranscription: false,
+      canUseHostedTranscription: false,
     },
   });
   await userEvent
@@ -346,7 +346,7 @@ it.each([
         email: "b@example.com",
         canUseRemoteAgents: true,
         canUseBuilderlabDecisions: false,
-        canUseBuilderlabTranscription: false,
+        canUseHostedTranscription: false,
       },
     });
     h.request.mockResolvedValue({
@@ -425,7 +425,7 @@ it("requires new account choices while retaining the draft instructions", async 
       email: "b@example.com",
       canUseRemoteAgents: true,
       canUseBuilderlabDecisions: false,
-      canUseBuilderlabTranscription: false,
+      canUseHostedTranscription: false,
     },
   });
   await userEvent
@@ -627,7 +627,7 @@ it("shares the cancellable spinner without browser-return guidance", async () =>
         email: "late@example.com",
         canUseRemoteAgents: true,
         canUseBuilderlabDecisions: false,
-        canUseBuilderlabTranscription: false,
+        canUseHostedTranscription: false,
       },
     });
     await signingIn;
