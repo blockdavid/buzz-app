@@ -34,6 +34,7 @@ import { ProfileChannels } from "./ProfileChannels";
 import { useChannelIdentityNames } from "../../features/identity-names/react";
 import { usePresenceStatus } from "../../features/presence/react";
 import {
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -41,6 +42,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import { openFromPanel, PanelPane } from "../../features/panels/opening-pane";
 import {
   CheckCircleIcon,
   CopyIcon,
@@ -298,6 +300,7 @@ function OwnedAgentProfile({
   // Unsaved edits are asked about before a link replaces this profile.
   const [unsaved, reportUnsaved] = useAgentSaveReports();
   const [leaving, setLeaving] = useState<string>();
+  const pane = useContext(PanelPane);
   if (leaving && !unsaved.dirty) setLeaving(undefined);
   if (!owned) return null;
   const address = navigation?.snapshot().entry.target;
@@ -308,7 +311,7 @@ function OwnedAgentProfile({
   const go = (link: string) => {
     const target = conversationTarget(link);
     if (target && navigation) {
-      void navigation.open(target);
+      openFromPanel(navigation, target, pane);
       return true;
     }
     return (context?.push ?? context?.open)?.(link);
