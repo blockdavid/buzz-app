@@ -2458,7 +2458,15 @@ function ThreadTitleRow(props: MessageRowProps) {
                 aria-hidden="true"
               />
               <span className={styles.threadTitleText} aria-hidden="true">
-                {title}
+                {props.extensions ? (
+                  <InlineText
+                    registry={props.extensions.inline}
+                    content={{ text: title, message: row }}
+                    media={media}
+                  />
+                ) : (
+                  title
+                )}
               </span>
               {row.edited && (
                 <span aria-hidden="true">

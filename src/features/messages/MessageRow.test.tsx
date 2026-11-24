@@ -693,6 +693,50 @@ it("draws a thread-title root as one line that opens its thread, and in full in 
     cleanup();
   }
 });
+it("draws a thread title's inline content, such as custom emoji, on its line", () => {
+  const empty: never[] = [];
+  const emoji = [
+    {
+      key: "emoji:custom",
+      pluginId: "emoji",
+      revision: "1",
+      id: "custom",
+      title: "Custom emoji",
+      matches: ({ text }: { text: string }) =>
+        [...text.matchAll(/:ship:/g)].map((match) => ({
+          start: match.index,
+          end: match.index + match[0].length,
+        })),
+      component: ({ text }: { text: string }) => (
+        <img alt={text} src="https://relay.test/ship.png" />
+      ),
+    },
+  ];
+  try {
+    renderDom(
+      <MessageRow
+        row={{ ...row, content: ":ship: the fix", threadTitle: true }}
+        profile={{ name: "Alex" }}
+        media={() => undefined}
+        onOpenLink={() => false}
+        day={false}
+        retry={undefined}
+        onOpenThread={() => {}}
+        extensions={{
+          tools: { snapshot: () => empty, subscribe: () => () => {} },
+          inline: { snapshot: () => emoji, subscribe: () => () => {} },
+        }}
+      />,
+    );
+    const line = screen.getByRole("button", {
+      name: /^Thread by Alex: :ship: the fix, /,
+    }).parentElement;
+    expect(line?.querySelector('img[alt=":ship:"]')).not.toBeNull();
+    expect(line?.textContent).toContain(" the fix");
+  } finally {
+    cleanup();
+  }
+});
 it("selects this thread, adds an accessible unread cue and preserves the total reply count", () => {
   const { html, snapshot } = render({ observedCount: 2 });
   expect(snapshot).toHaveBeenCalledExactlyOnceWith({
