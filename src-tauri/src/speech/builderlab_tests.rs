@@ -88,6 +88,7 @@ async fn sends_the_offer_with_the_sign_in_and_community_and_names_no_model() {
         &bearer(),
         OFFER,
         Some(COMMUNITY),
+        None,
         Duration::from_secs(5),
     )
     .await;
@@ -100,9 +101,51 @@ async fn sends_the_offer_with_the_sign_in_and_community_and_names_no_model() {
     );
     let seen = seen.lock().unwrap();
     let (head, body) = &seen[0];
-    assert!(head.contains("authorization: bearer fi-session-do-not-use"));
+    assert!(head.contains("authorization: bearer fi-session-do-not-use")); // sadscan:disable np.http.2
     assert!(head.contains("x-buzz-community: relay.example.com"));
     assert_eq!(body, &json!({ "sdp": OFFER, "languages": ["en"] }));
+}
+
+#[tokio::test]
+async fn a_requested_cap_is_sent_and_the_granted_one_returned() {
+    let granted = json!({ "sdp": "v=0\r\nanswer", "call_id": "rtc_1", "model": "gpt-realtime-whisper", "max_seconds": 900 })
+        .to_string();
+    let (url, seen) = server(vec![Some((200, granted))]).await;
+    let result = connect(
+        &url,
+        &bearer(),
+        OFFER,
+        Some(COMMUNITY),
+        Some(3_600),
+        Duration::from_secs(5),
+    )
+    .await;
+    assert_eq!(
+        connected(result),
+        Connected::Answered {
+            sdp: "v=0\r\nanswer".into(),
+            max_seconds: Some(900)
+        }
+    );
+    assert_eq!(
+        seen.lock().unwrap()[0].1,
+        json!({ "sdp": OFFER, "languages": ["en"], "max_seconds": 3_600 })
+    );
+
+    // A zero cap is refused here rather than sent.
+    assert_eq!(
+        connect(
+            &url,
+            &bearer(),
+            OFFER,
+            Some(COMMUNITY),
+            Some(0),
+            Duration::from_secs(5)
+        )
+        .await
+        .err(),
+        Some(Refused::Failed(Failure::InvalidRequest))
+    );
 }
 
 #[tokio::test]
@@ -114,6 +157,7 @@ async fn the_development_session_goes_in_its_own_header() {
         &session,
         OFFER,
         Some(COMMUNITY),
+        None,
         Duration::from_secs(5),
     )
     .await;
@@ -133,7 +177,7 @@ async fn nothing_is_sent_without_a_community_or_a_valid_offer() {
         ("", Some(COMMUNITY)),
     ] {
         assert_eq!(
-            connect(&url, &bearer(), offer, community, timeout)
+            connect(&url, &bearer(), offer, community, None, timeout)
                 .await
                 .err(),
             Some(Refused::Failed(Failure::InvalidRequest))
@@ -141,7 +185,7 @@ async fn nothing_is_sent_without_a_community_or_a_valid_offer() {
     }
     let empty = SignIn::Bearer(Zeroizing::new(" ".into()));
     assert_eq!(
-        connect(&url, &empty, OFFER, Some(COMMUNITY), timeout)
+        connect(&url, &empty, OFFER, Some(COMMUNITY), None, timeout)
             .await
             .err(),
         Some(Refused::Failed(Failure::MissingCredentials))
@@ -174,6 +218,7 @@ async fn statuses_map_to_one_failure_and_are_not_retried() {
             &bearer(),
             OFFER,
             Some(COMMUNITY),
+            None,
             Duration::from_secs(5),
         )
         .await;
@@ -200,6 +245,7 @@ async fn the_deadline_bounds_the_call() {
         &bearer(),
         OFFER,
         Some(COMMUNITY),
+        None,
         Duration::from_millis(200),
     )
     .await;

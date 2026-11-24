@@ -169,6 +169,54 @@ it("warms on-device speech only when it listens", async () => {
   expect(onDevice.prepare).toHaveBeenCalledOnce();
 });
 
+it("asks for a call length only when the caller sets a valid one, and returns the granted cap", async () => {
+  const connect = vi.fn<SpeechProvider["connect"]>(async () => ({
+    outcome: "answered",
+    sdp: "v=0 answer",
+    maxSeconds: 900,
+  }));
+  const { service, plugin } = await setup();
+  await plugin("block.builderlab", { id: "builderlab", connect });
+  const signal = new AbortController().signal;
+
+  service.listen({ maxSeconds: 3_600, onText() {}, onEnd() {} });
+  await expect(lastConnect()("offer", signal)).resolves.toEqual({
+    outcome: "answered",
+    sdp: "v=0 answer",
+    maxSeconds: 900,
+  });
+  expect(connect).toHaveBeenLastCalledWith(
+    { offer: "offer", maxSeconds: 3_600, timeoutMs: 20_000 },
+    { signal: expect.any(AbortSignal) },
+  );
+
+  // A voice command sets none, so the provider's default applies.
+  for (const maxSeconds of [undefined, 0, -5, 1.5, Number.NaN]) {
+    service.listen({
+      ...(maxSeconds === undefined ? {} : { maxSeconds }),
+      onText() {},
+      onEnd() {},
+    });
+    await lastConnect()("offer", signal);
+    expect(connect).toHaveBeenLastCalledWith(
+      { offer: "offer", timeoutMs: 20_000 },
+      { signal: expect.any(AbortSignal) },
+    );
+  }
+
+  // A cap that is not whole seconds is dropped from the reply.
+  connect.mockResolvedValueOnce({
+    outcome: "answered",
+    sdp: "v=0 answer",
+    maxSeconds: -1,
+  });
+  service.listen({ onText() {}, onEnd() {} });
+  await expect(lastConnect()("offer", signal)).resolves.toEqual({
+    outcome: "answered",
+    sdp: "v=0 answer",
+  });
+});
+
 it("passes the offer and community to the provider and checks its reply", async () => {
   const connect = vi.fn<SpeechProvider["connect"]>(async () => ({
     outcome: "answered",

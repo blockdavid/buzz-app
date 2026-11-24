@@ -13,6 +13,7 @@ import {
 } from "../../plugins/contributions";
 import {
   SPEECH_FAILURES,
+  isCallSeconds,
   listenHosted,
   listenOnDevice,
   type ListenOptions,
@@ -47,11 +48,16 @@ export type SpeechConnectRequest = Readonly<{
    * bills the community, such as Builderlab, refuses a call without one. */
   community?: string;
   timeoutMs: number;
+  /** The call's cap the caller asks for, in whole seconds. Without one the
+   * provider uses its default, as voice commands do; a longer call is
+   * always one the caller asked for. */
+  maxSeconds?: number;
 }>;
 
-/** What a provider's `connect` resolves with. */
+/** What a provider's `connect` resolves with. `maxSeconds` is the cap the
+ * provider granted, when it says: it hangs up that long after answering. */
 export type SpeechConnectReply =
-  | Readonly<{ outcome: "answered"; sdp: string }>
+  | Readonly<{ outcome: "answered"; sdp: string; maxSeconds?: number }>
   | Readonly<{ outcome: "failed"; reason: SpeechFailure }>;
 
 /** A hosted speech provider, as a plugin registers it. It answers the host's
@@ -335,6 +341,9 @@ export class SpeechService extends Service implements Speech {
               ...(options.community === undefined
                 ? {}
                 : { community: options.community }),
+              ...(isCallSeconds(options.maxSeconds)
+                ? { maxSeconds: options.maxSeconds }
+                : {}),
               timeoutMs: CONNECT_TIMEOUT_MS,
             }),
             { signal: abort.signal },
@@ -352,7 +361,13 @@ export class SpeechService extends Service implements Speech {
           typeof reply.sdp === "string" &&
           reply.sdp
         )
-          return reply;
+          return isCallSeconds(reply.maxSeconds)
+            ? {
+                outcome: "answered",
+                sdp: reply.sdp,
+                maxSeconds: reply.maxSeconds,
+              }
+            : { outcome: "answered", sdp: reply.sdp };
         if (reply?.outcome === "failed")
           return {
             outcome: "failed",

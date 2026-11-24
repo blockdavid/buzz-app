@@ -282,6 +282,10 @@ pub(crate) struct ConnectRequest {
     /// How long the caller waits, at most 20 seconds.
     #[serde(default)]
     timeout_ms: Option<u64>,
+    /// The call's cap the caller asks for, in seconds. Without one the
+    /// provider uses its default, as voice commands do.
+    #[serde(default)]
+    max_seconds: Option<u32>,
 }
 
 /// The development broker's public session, as decisions take it.
@@ -345,7 +349,7 @@ pub(crate) async fn speech_connect(
         let connected = tokio::select! {
             biased;
             () = cancel.cancelled() => return Ok(missing),
-            connected = builderlab::connect(&endpoint, &sign_in, &request.offer, request.community.as_deref(), timeout) => connected,
+            connected = builderlab::connect(&endpoint, &sign_in, &request.offer, request.community.as_deref(), request.max_seconds, timeout) => connected,
         };
         if cancel.is_cancelled() {
             return Ok(missing);
@@ -379,6 +383,7 @@ pub(crate) async fn speech_connect(
                 &sign_in,
                 &request.offer,
                 request.community.as_deref(),
+                request.max_seconds,
                 timeout,
             )
             .await;

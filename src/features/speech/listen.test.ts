@@ -36,8 +36,16 @@ function callbacks() {
   const onEnd = vi.fn();
   const onError = vi.fn();
   const onState = vi.fn();
-  const options: ListenOptions = { onText, onPause, onEnd, onError, onState };
-  return { options, onText, onPause, onEnd, onError, onState };
+  const onCallLimit = vi.fn();
+  const options: ListenOptions = {
+    onText,
+    onPause,
+    onEnd,
+    onError,
+    onState,
+    onCallLimit,
+  };
+  return { options, onText, onPause, onEnd, onError, onState, onCallLimit };
 }
 
 const DELTA = "conversation.item.input_audio_transcription.delta";
@@ -218,6 +226,20 @@ it("ignores an empty commit but fails on other Realtime errors", async () => {
   r.receive({ type: "error", error: { message: "boom" } });
   expect(r.onError).toHaveBeenCalledWith("service_error", "boom");
   expect(r.close).toHaveBeenCalledOnce();
+});
+
+it("reports the call's cap when the provider grants one", async () => {
+  const capped = hosted({
+    outcome: "answered",
+    sdp: "answer",
+    maxSeconds: 900,
+  });
+  await capped.start();
+  expect(capped.onCallLimit).toHaveBeenCalledExactlyOnceWith(900);
+
+  const uncapped = hosted();
+  await uncapped.start();
+  expect(uncapped.onCallLimit).not.toHaveBeenCalled();
 });
 
 it("reports what it heard when the provider hangs up", async () => {

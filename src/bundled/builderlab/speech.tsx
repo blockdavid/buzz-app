@@ -13,7 +13,7 @@ import type {
   SpeechProvider,
   SpeechProviderStatus,
 } from "../../features/speech/service";
-import { SPEECH_FAILURES } from "../../features/speech/listen";
+import { SPEECH_FAILURES, isCallSeconds } from "../../features/speech/listen";
 import { Login } from "./login/Login";
 import type { BuilderlabSession, Credential } from "./session";
 
@@ -113,9 +113,17 @@ export function builderlabSpeechProvider(
       }
       if (!reply || typeof reply !== "object")
         return { outcome: "failed", reason: "invalid_response" };
-      const { outcome, reason, sdp } = reply as Record<string, unknown>;
+      const {
+        outcome,
+        reason,
+        sdp,
+        max_seconds: maxSeconds,
+      } = reply as Record<string, unknown>;
+      // The cap Builderlab granted: the one asked for, or less.
       if (outcome === "answered" && typeof sdp === "string")
-        return { outcome, sdp };
+        return isCallSeconds(maxSeconds)
+          ? { outcome, sdp, maxSeconds }
+          : { outcome, sdp };
       return {
         outcome: "failed",
         reason:

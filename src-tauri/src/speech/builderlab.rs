@@ -2,6 +2,8 @@
 //! `v3/builderlab/transcription/calls`, which answers it with OpenAI's SDP and
 //! meters the call. The request names no model, so the route's default
 //! transcribes. It bills the community, so a call without one is not sent.
+//! A call may ask for a longer cap than the route's default (30 seconds);
+//! the route answers with the cap it granted, which may be less.
 use super::{Connected, Failure};
 use serde::Deserialize;
 use std::time::Duration;
@@ -76,6 +78,7 @@ pub(super) async fn connect(
     sign_in: &SignIn,
     offer: &str,
     community: Option<&str>,
+    max_seconds: Option<u32>,
     timeout: Duration,
 ) -> Result<Answer, Refused> {
     let failed = |reason| Err(Refused::Failed(reason));
@@ -94,7 +97,14 @@ pub(super) async fn connect(
     let Some(client) = client() else {
         return failed(Failure::ServiceError);
     };
-    let body = serde_json::json!({ "sdp": offer, "languages": ["en"] }).to_string();
+    let mut body = serde_json::json!({ "sdp": offer, "languages": ["en"] });
+    if let Some(max_seconds) = max_seconds {
+        if max_seconds == 0 {
+            return failed(Failure::InvalidRequest);
+        }
+        body["max_seconds"] = max_seconds.into();
+    }
+    let body = body.to_string();
     let post = client.post(endpoint);
     #[cfg(debug_assertions)]
     let post = if endpoint.starts_with("http://") {

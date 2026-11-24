@@ -36,6 +36,11 @@ export const SPEECH_FAILURES: readonly SpeechFailure[] = [
   "invalid_response",
 ];
 
+/** A call cap a caller may ask for or a provider may grant: whole seconds,
+ * more than none. */
+export const isCallSeconds = (value: unknown): value is number =>
+  typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+
 /** `downloading`: the on-device model is being fetched, the first time only. */
 export type ListenState = "starting" | "downloading" | "listening" | "idle";
 
@@ -46,6 +51,14 @@ export type ListenOptions = Readonly<{
   /** The Buzz community (its relay URL) the speech is for. Hosted providers
    * that bill the community need it. */
   community?: string;
+  /** How long a hosted call may last, in whole seconds, for speech longer
+   * than a command. Without it the provider's default applies (30 seconds
+   * on Builderlab), so a forgotten microphone cannot run long. The provider
+   * may grant less; see `onCallLimit`. */
+  maxSeconds?: number;
+  /** The cap a hosted provider granted this call, in seconds, once it
+   * answers. It hangs up then, and listening ends with what was heard. */
+  onCallLimit?(maxSeconds: number): void;
   /** The transcript so far, each time it changes. */
   onText(text: string): void;
   /** The transcript so far, once speech pauses briefly; listening goes on.
@@ -273,7 +286,7 @@ export type Connect = (
   offer: string,
   signal: AbortSignal,
 ) => Promise<
-  | Readonly<{ outcome: "answered"; sdp: string }>
+  | Readonly<{ outcome: "answered"; sdp: string; maxSeconds?: number }>
   | Readonly<{ outcome: "failed"; reason: SpeechFailure }>
 >;
 
@@ -379,6 +392,8 @@ export function listenHosted(
       ]);
       if (run.ended) return;
       if (answer.outcome === "failed") return fail(answer.reason);
+      if (answer.maxSeconds !== undefined)
+        options.onCallLimit?.(answer.maxSeconds);
       await sender.replaceTrack(media.getAudioTracks()[0] ?? null);
       if (run.ended) return;
       await peer.setRemoteDescription({ type: "answer", sdp: answer.sdp });

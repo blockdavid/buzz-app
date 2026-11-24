@@ -67,6 +67,34 @@ it("needs a sign-in, then sends the offer with it", async () => {
   expect(native).toHaveBeenCalledWith(request, session.credential());
 });
 
+it("sends a requested call length and returns the cap Builderlab granted", async () => {
+  const session = createTestSession(async () => credential("first"));
+  const native = vi.fn<BuilderlabSpeechConnect>(async () => ({
+    outcome: "answered",
+    sdp: "v=0 answer",
+    max_seconds: 900,
+  }));
+  const provider = builderlabSpeechProvider(session, true, native);
+  await session.signIn();
+  const long = { ...request, maxSeconds: 3_600 };
+  await expect(provider.connect(long, { signal })).resolves.toEqual({
+    outcome: "answered",
+    sdp: "v=0 answer",
+    maxSeconds: 900,
+  });
+  expect(native).toHaveBeenCalledWith(long, session.credential());
+
+  native.mockResolvedValueOnce({
+    outcome: "answered",
+    sdp: "v=0 answer",
+    max_seconds: "900",
+  });
+  await expect(provider.connect(request, { signal })).resolves.toEqual({
+    outcome: "answered",
+    sdp: "v=0 answer",
+  });
+});
+
 it("sends nothing unless the account may use transcription", async () => {
   const session = createTestSession(async () => credential("first", false));
   const native = vi.fn<BuilderlabSpeechConnect>();

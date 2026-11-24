@@ -287,4 +287,8 @@ the host's WebRTC offer to `v3/builderlab/transcription/calls` with the same
 sign-in as `decide` and the community in `x-buzz-community`, and returns
 Builderlab's SDP answer; it names no model, so Builderlab chooses one. Audio
 then goes peer to peer, and the host commits it at each pause and at the end so
-Builderlab can meter the transcribed seconds.
+Builderlab can meter the transcribed seconds. Builderlab hangs a call up at its
+cap: 30 seconds unless the listen asks for longer with `maxSeconds`, sent as
+`max_seconds`, so a forgotten microphone cannot run long. Voice commands never
+ask. Builderlab may grant less than was asked (its ceiling is an hour), and the
+granted `max_seconds` reaches the listen's `onCallLimit`.
