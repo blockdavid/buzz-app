@@ -265,7 +265,13 @@ test.describe("Inline", () => {
     await showMore(sheet(page), "Nested findings").click();
     await expect(detailsSheet(page)).toBeVisible();
     await expect(detailsSheet(page).getByText("Finding 2")).toBeVisible();
-    // The thread hasn't grown for them.
+    // The thread hasn't grown for them: read once any growth would be over,
+    // not at its start, where the thread is still at the height it had.
+    await sheet(page).evaluate((element) =>
+      Promise.allSettled(
+        element.getAnimations().map((animation) => animation.finished),
+      ),
+    );
     expect(await height(sheet(page))).toBeLessThanOrEqual(own + 1);
     await page.goBack();
     await expect(detailsSheet(page)).toHaveCount(0);

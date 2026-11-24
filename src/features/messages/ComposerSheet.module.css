@@ -302,22 +302,23 @@ html[data-keyboard-navigation] :is(.scrim, .content) {
 }
 /* Script grows it to this height from the height it has (`useCovering`);
    the transition would start from 0. */
-.sheet[data-contained-composer][data-covered] {
+.sheet[data-contained-composer][data-under-details] {
   min-height: min(
     var(--sheet-max-height),
     calc(var(--covering-height) + var(--sheet-strip))
   );
   transition: none;
 }
-.sheet[data-contained-composer]:is([data-tall], [data-covered]) > .content,
-.sheet[data-contained-composer]:is([data-tall], [data-covered])
+.sheet[data-contained-composer]:is([data-tall], [data-under-details])
+  > .content,
+.sheet[data-contained-composer]:is([data-tall], [data-under-details])
   > .content
   > .body,
-.sheet[data-contained-composer]:is([data-tall], [data-covered])
+.sheet[data-contained-composer]:is([data-tall], [data-under-details])
   > .content
   > .body
   > .reader,
-.sheet[data-contained-composer]:is([data-tall], [data-covered])
+.sheet[data-contained-composer]:is([data-tall], [data-under-details])
   > .content
   > .body
   > .reader

@@ -656,7 +656,7 @@ export function ComposerSheet({
           data-contained-composer={containsComposer || undefined}
           data-reader-only={readerOnly || undefined}
           data-tall={tall || undefined}
-          data-covered={covering === undefined ? undefined : ""}
+          data-under-details={covering === undefined ? undefined : ""}
           // Threads and details fit their content and grow with it, up to the
           // maximum; a panel takes the full height (`data-reader-only`).
           data-height="content"
