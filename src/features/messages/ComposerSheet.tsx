@@ -157,19 +157,18 @@ function useCoveringHeight(
 
 /** The details over a thread's reply box, for the thread's sheet: how tall
  * they read, and `report`, which they tell it through. CSS gives the sheet
- * its height under them; this moves it there. The sheet grows from the height
- * it has on the curve the details open on, so its old box never cuts them
- * off, and once they close it settles from the height it grew to down to its
- * own. A min-height transition does neither: it runs from 0, far below the
- * sheet, which waits and then jumps. */
+ * its height under them; this grows it there from the height it has, on the
+ * curve the details open on, so its old box never cuts them off. A
+ * min-height transition doesn't: it runs from 0, far below the sheet, which
+ * waits and then jumps. */
 function useCovering(popup: RefObject<HTMLElement | null>) {
   const [covering, setCovering] = useState<number>();
   const reported = useRef<number>(undefined);
-  // The sheet's height as details began or stopped covering it.
+  // The sheet's height as details began to cover it.
   const before = useRef<number>(undefined);
   const report = useCallback(
     (height: number | undefined) => {
-      if ((height === undefined) !== (reported.current === undefined))
+      if (height !== undefined && reported.current === undefined)
         before.current = popup.current?.getBoundingClientRect().height;
       reported.current = height;
       setCovering(height);
@@ -182,29 +181,20 @@ function useCovering(popup: RefObject<HTMLElement | null>) {
     const from = before.current;
     before.current = undefined;
     if (
+      !covered ||
       !element ||
       from === undefined ||
       typeof element.animate !== "function" ||
       immediate()
     )
       return;
-    const timing = growthTiming(element, covered);
-    let keyframes: Keyframe[];
-    if (covered) {
-      // No end keyframe: it ends where CSS has the sheet by then, which
-      // follows the details as what they read arrives.
-      keyframes = [{ minHeight: `${from}px`, offset: 0 }];
-      timing.easing = held(timing.easing);
-    } else {
-      // The sheet's own height, read without the panel's transition, which
-      // would start here from the height it had.
-      element.style.transition = "none";
-      const own = element.getBoundingClientRect().height;
-      element.style.transition = "";
-      if (from <= own) return;
-      keyframes = [{ minHeight: `${from}px` }, { minHeight: `${own}px` }];
-    }
-    const animation = element.animate(keyframes, timing);
+    const timing = growthTiming(element, true);
+    // No end keyframe: it ends where CSS has the sheet by then, which
+    // follows the details as what they read arrives.
+    const animation = element.animate([{ minHeight: `${from}px`, offset: 0 }], {
+      ...timing,
+      easing: held(timing.easing),
+    });
     return () => animation.cancel();
   }, [popup, covered]);
   return { covering, report };
@@ -587,7 +577,7 @@ export function ComposerSheet({
    * leaves untouched underneath. */
   readerOnly?: boolean;
   /** Takes the full height while true, as a thread does under a panel, and
-   * settles back to its content after. */
+   * fits its content again after. */
   tall?: boolean;
   /** Once a close has finished its motion. */
   onClosed?: (() => void) | undefined;

@@ -257,12 +257,16 @@ test.describe("Inline", () => {
     const [root] = roots(app);
     await clickRow(page, viewThread(page, root));
     await expect(sheet(page)).toBeVisible();
-    details(app, "Nested findings", root);
+    // Three one-line paragraphs: they read far shorter than the thread in
+    // any font.
+    findings(app, "Nested findings", 2, root);
     await expect(showMore(sheet(page), "Nested findings")).toBeVisible();
     const own = await height(sheet(page));
     await showMore(sheet(page), "Nested findings").click();
     await expect(detailsSheet(page)).toBeVisible();
-    await expect(detailsSheet(page).getByText(filler.trim())).toBeVisible();
+    await expect(detailsSheet(page).getByText("Finding 2")).toBeVisible();
+    // The thread hasn't grown for them.
+    expect(await height(sheet(page))).toBeLessThanOrEqual(own + 1);
     await page.goBack();
     await expect(detailsSheet(page)).toHaveCount(0);
     await expect(sheet(page)).toBeVisible();
@@ -277,19 +281,17 @@ test.describe("Inline", () => {
     await page.reload();
     await expect(sheet(page)).toBeVisible();
     await expect(detailsSheet(page)).toBeVisible();
-    // Shorter than the thread, which hasn't grown for them, they still cover
-    // it, its header included.
+    // Shorter than the thread, they still cover it, its header included.
     await expect
       .poll(() => covers(detailsSheet(page), close(sheet(page))))
       .toBe(true);
-    expect(await height(sheet(page))).toBeLessThanOrEqual(own + 1);
     // Escape closes only the details.
     await page.keyboard.press("Escape");
     await expect(detailsSheet(page)).toHaveCount(0);
     await expect(sheet(page)).toBeVisible();
   });
 
-  test("details stack over a short thread at their own height; the thread grows behind them and settles back", async ({
+  test("details stack over a short thread at their own height; the thread grows behind them and is at its own height once they close", async ({
     page,
     app,
   }) => {
@@ -330,8 +332,8 @@ test.describe("Inline", () => {
     await page.keyboard.type("Noted");
     await expect(reply(sheet(page))).toContainText("Noted");
     await expect(reader).toBeVisible();
-    // Closed, they leave the thread at its own height again, its header's
-    // controls in reach.
+    // Closed, they leave a thread at its own height with its header's
+    // controls in reach: the state after, not how the thread gets there.
     await close(reader).click();
     await expect(reader).toHaveCount(0);
     await expect.poll(() => height(sheet(page))).toBeLessThanOrEqual(short + 1);
