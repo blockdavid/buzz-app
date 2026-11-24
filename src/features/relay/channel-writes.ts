@@ -8,6 +8,7 @@ import {
   promoteSoloAdmins,
   soloAdminKey,
   soloAdminRecovery,
+  soloAdminSetupExpired,
   soloAgentOwnership,
 } from "./solo-admins";
 import { isBatchAddition } from "../channel-members/members";
@@ -613,37 +614,50 @@ export function createChannelWrites(
     const pending = (receipts ?? outbox)
       ?.snapshot()
       .find((item) => item.recovery?.key === soloAdminKey(id));
-    if (!pending) return;
+    if (!pending?.recovery) return;
     const active = adminSetups.get(id);
     if (active) return active;
+    const opening = pending.recovery;
     const work = (async () => {
+      await created(pending.event.id);
+      // Checked first, so no other failure can block the chat past expiry.
+      if (soloAdminSetupExpired(pending.event))
+        return outbox?.dismiss(pending.event.id, opening);
       const source = writer();
       const withRecovery = source.withRecovery;
       const finishRecovery = source.finishRecovery;
       if (!adminWriter || !relayAuthor || !withRecovery || !finishRecovery)
         throw new Error("This connection cannot set up chat admins.");
-      await created(pending.event.id);
       const saved = await source.recovery(soloAdminKey(id));
       // Another window finished it.
       if (!saved?.recovery) return;
       const recovery = saved.recovery;
-      await promoteSoloAdmins(
-        saved,
-        {
-          ...adminWriter,
-          publish: (event, signal, checkOwnership) =>
-            withRecovery(saved.event.id, recovery, () => {
-              checkOwnership();
-              return adminWriter.publish(event, signal);
-            }),
-        },
-        discovery,
-        relayAuthor,
-        signal,
-        freshOwnership,
-      );
-      signal.throwIfAborted();
-      await finishRecovery(saved.event.id, recovery);
+      try {
+        await promoteSoloAdmins(
+          saved,
+          {
+            ...adminWriter,
+            publish: (event, signal, checkOwnership) =>
+              withRecovery(saved.event.id, recovery, () => {
+                checkOwnership();
+                return adminWriter.publish(event, signal);
+              }),
+          },
+          discovery,
+          relayAuthor,
+          signal,
+          freshOwnership,
+        );
+        signal.throwIfAborted();
+        await finishRecovery(saved.event.id, recovery);
+      } catch (error) {
+        // Another window finished it while this one was granting.
+        if (
+          signal.aborted ||
+          (await source.recovery(soloAdminKey(id)))?.recovery
+        )
+          throw error;
+      }
     })();
     adminSetups.set(id, work);
     void work.catch(() => {}).finally(() => adminSetups.delete(id));

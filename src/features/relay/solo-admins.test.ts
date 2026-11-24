@@ -198,15 +198,17 @@ it("does not turn a failed role read into a permission grant", async () => {
   expect(h.publish).not.toHaveBeenCalled();
 });
 
-it("never re-dates an expired grant, but can still confirm recorded grants after expiry", async () => {
+it("never re-dates or looks up an expired grant", async () => {
   const h = setup();
   await h.run();
+  expect(h.publish).toHaveBeenCalledTimes(2);
+  h.records.clear();
+  h.read.mockClear();
   const now = Date.now();
   const clock = vi.spyOn(Date, "now").mockReturnValue(now + 16 * 60 * 1000);
   try {
     await h.run();
-    h.records.clear();
-    await h.run();
+    expect(h.read).not.toHaveBeenCalled();
     expect(h.publish).toHaveBeenCalledTimes(2);
   } finally {
     clock.mockRestore();

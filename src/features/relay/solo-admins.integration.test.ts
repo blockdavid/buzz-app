@@ -30,7 +30,12 @@ function setup() {
   let omitProfiles = false;
   let failProfiles = false;
   let failGrantReads = false;
+  let finished = false;
   let journal: readonly OutgoingEvent[] = [];
+  const unfinished = (items: readonly OutgoingEvent[]) =>
+    finished
+      ? items.filter((item) => item.recovery?.key !== soloAdminKey(channel))
+      : items;
   const events = new Map<string, RelayEvent>();
   const roles = new Map<string, string>();
   const genericPublish = vi.fn(async (event: RelayEvent) => {
@@ -114,7 +119,7 @@ function setup() {
         },
         load: () => structuredClone(journal),
         save: (next) => {
-          journal = structuredClone(next);
+          journal = structuredClone(unfinished(next));
         },
       },
     });
@@ -179,6 +184,10 @@ function setup() {
     },
     failGrantReads: () => {
       failGrantReads = true;
+    },
+    finishElsewhere: () => {
+      finished = true;
+      journal = unfinished(journal);
     },
     beforeLock: (run: () => Promise<void>) => {
       beforeLock = run;
@@ -301,9 +310,9 @@ it("resumes a partial setup from the durable outbox after restart without restor
   ).toHaveLength(1);
 });
 
-it.each(["readable", "unreadable"])(
-  "finishes an expired setup on its own so the chat's next message sends with current roles when grants are %s",
-  async (grants) => {
+it.each(["grants are readable", "grants are unreadable", "it cannot grant"])(
+  "finishes an expired setup on its own so the chat's next message sends with current roles when %s",
+  async (connection) => {
     const h = setup();
     const first = await h.open();
     h.adminPublish.mockRejectedValue(new Error("offline"));
@@ -316,7 +325,9 @@ it.each(["readable", "unreadable"])(
       ).toBe("failed"),
     );
     first.dispose();
-    if (grants === "unreadable") h.failGrantReads();
+    if (connection === "grants are unreadable") h.failGrantReads();
+    if (connection === "it cannot grant")
+      Reflect.deleteProperty(h.transport, "memberAdministration");
     const clock = vi
       .spyOn(Date, "now")
       .mockReturnValue(Date.now() + 16 * 60 * 1000);
@@ -380,6 +391,12 @@ it("keeps setup when a profile read fails, so a retry can still grant", async ()
   await expect(
     owner.session.channelWrites.prepareOpening(h.channel),
   ).rejects.toThrow("Profile read unavailable");
+  await vi.waitFor(() =>
+    expect(
+      owner.session.outbox?.snapshot().find((item) => item.event.id === message)
+        ?.delivery,
+    ).toBe("failed"),
+  );
   expect(h.adminPublish).not.toHaveBeenCalled();
   expect(h.events.has(message)).toBe(false);
   expect(
@@ -387,6 +404,45 @@ it("keeps setup when a profile read fails, so a retry can still grant", async ()
       ?.snapshot()
       .some((item) => item.recovery?.key === soloAdminKey(h.channel)),
   ).toBe(true);
+});
+
+it("sends from a window whose setup another window already finished", async () => {
+  const h = setup();
+  const first = await h.open();
+  h.adminPublish.mockRejectedValue(new Error("offline"));
+  const { message } = h.start(first);
+  await vi.waitFor(() =>
+    expect(
+      first.session.outbox?.snapshot().find((item) => item.event.id === message)
+        ?.delivery,
+    ).toBe("failed"),
+  );
+  const second = await h.open();
+  first.dispose();
+  h.finishElsewhere();
+  const next = second.session.messages.send(
+    h.channel,
+    "From the other window",
+    h.agents,
+  );
+  await vi.waitFor(() => expect(h.events.has(next)).toBe(true));
+  expect(h.adminPublish).toHaveBeenCalledOnce();
+});
+
+it("sends the message when another window finishes setup while this one grants", async () => {
+  const h = setup();
+  const owner = await h.open();
+  const sign = h.transport.memberAdministration.sign;
+  h.transport.memberAdministration.sign = async (template) => {
+    h.beforeLock(async () => {
+      h.beforeLock(async () => {});
+      h.finishElsewhere();
+    });
+    return sign(template);
+  };
+  const { message } = h.start(owner);
+  await vi.waitFor(() => expect(h.events.has(message)).toBe(true));
+  expect(h.adminPublish).not.toHaveBeenCalled();
 });
 
 it("checks the current profile inside the shared publication lock after signing", async () => {

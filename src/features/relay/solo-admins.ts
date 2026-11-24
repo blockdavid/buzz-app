@@ -96,13 +96,19 @@ function readSoloAdminSetup(item: OutgoingEvent) {
     return { channel, admins, recovery: item.recovery };
 }
 
+/** Grants reuse the create's timestamp, so none is sent once it is 15
+ * minutes old. */
+export const soloAdminSetupExpired = (create: { created_at: number }) =>
+  Date.now() / 1000 - create.created_at >= 15 * 60;
+
 /** Setup can no longer grant this agent, so it keeps its current role. */
 class GrantSkipped extends Error {}
 
 /** Reconstruct the exact same promotions after interruption. Their timestamp
  * and channel come from the saved create, so retries never invent a new grant
  * that could undo a later demotion or removal. A grant that can no longer be
- * made is skipped, so setup always finishes and never blocks the chat. */
+ * made is skipped. Any other failure leaves setup for a retry, until it
+ * expires. */
 export async function promoteSoloAdmins(
   creation: OutgoingEvent,
   writer: Omit<RelayWriter, "publish"> & {
@@ -154,10 +160,9 @@ export async function promoteSoloAdmins(
           },
         ])
       ).some((event) => event.id === id && event.pubkey === create.pubkey);
-    // Once its window closes, a grant is never sent, so whether it was
-    // recorded no longer matters and a failed lookup cannot block the chat.
-    if (Date.now() / 1000 - create.created_at >= 15 * 60)
-      throw new GrantSkipped("Chat admin setup expired.");
+    // An expired grant is never sent, so whether it was recorded no longer
+    // matters and a failed lookup cannot block the chat.
+    if (soloAdminSetupExpired(create)) return;
     // A recorded grant remains complete even when its recipient was demoted.
     if (await recorded()) return;
     const ownership = await owned?.(admin, admins);
