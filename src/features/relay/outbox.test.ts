@@ -272,16 +272,23 @@ it("a duplicate refusal of anything but a reaction stays failed for its caller t
     { event: { id }, delivery: "failed", refused: true },
   ]);
 });
-it("drops duplicate reaction refusals that an earlier version saved as failed, and keeps other kinds' duplicate refusals", async () => {
-  const duplicate = signed(viewer, {
-    kind: 7,
-    content: "❌",
-    tags: [["h", "c"]],
-  });
-  const retriedDuplicate = signed(viewer, {
-    kind: 7,
-    content: "👍",
-    tags: [["h", "c"]],
+it("drops duplicate reaction refusals that an earlier version saved, and keeps other kinds' duplicate refusals", async () => {
+  const savedRefusals: readonly Pick<OutgoingEvent, "delivery" | "error">[] = [
+    { delivery: "failed", error: "duplicate: reaction already exists" },
+    {
+      delivery: "unknown",
+      error: "Retry blocked: duplicate: reaction already exists",
+    },
+    { delivery: "failed", error: "Reaction already exists" },
+    { delivery: "unknown", error: "Retry blocked: Reaction already exists" },
+  ];
+  const savedReactions = savedRefusals.map((refusal, index) => {
+    const reaction = signed(viewer, {
+      kind: 7,
+      content: `❌${index}`,
+      tags: [["h", "c"]],
+    });
+    return { event: reaction, signed: reaction, ...refusal };
   });
   const message = signed(viewer, {
     kind: 9,
@@ -289,18 +296,7 @@ it("drops duplicate reaction refusals that an earlier version saved as failed, a
     tags: [["h", "c"]],
   });
   let records: readonly OutgoingEvent[] = [
-    {
-      event: duplicate,
-      signed: duplicate,
-      delivery: "failed",
-      error: "duplicate: reaction already exists",
-    },
-    {
-      event: retriedDuplicate,
-      signed: retriedDuplicate,
-      delivery: "unknown",
-      error: "Retry blocked: duplicate: reaction already exists",
-    },
+    ...savedReactions,
     {
       event: message,
       signed: message,

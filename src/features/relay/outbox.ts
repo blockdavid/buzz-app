@@ -182,15 +182,24 @@ function refusedAsExistingReaction(event: EventData, error: unknown) {
   );
 }
 /** Journals written before these refusals were retired kept them with the
- * relay's reason as their stored error: failed after a first attempt, or
- * still unknown after a retry of an unconfirmed send was refused. */
+ * error text shown to the user: failed after a first attempt, or still
+ * unknown after a retry of an unconfirmed send was refused. The socket path
+ * saved the relay's raw reason, and the HTTP path saved it without the
+ * `duplicate:` prefix. */
+const SAVED_EXISTING_REACTION_ERRORS = new Set([
+  "duplicate: reaction already exists",
+  "Reaction already exists",
+]);
+const RETRY_BLOCKED_PREFIX = "Retry blocked: ";
 function storedAsExistingReaction(item: OutgoingEvent) {
   if (item.event.kind !== 7 || item.recovery) return false;
   const error = item.error ?? "";
-  if (item.delivery === "failed") return error.startsWith("duplicate:");
-  return (
-    item.delivery === "unknown" && error.startsWith("Retry blocked: duplicate:")
-  );
+  if (item.delivery === "failed")
+    return SAVED_EXISTING_REACTION_ERRORS.has(error);
+  if (item.delivery !== "unknown" || !error.startsWith(RETRY_BLOCKED_PREFIX))
+    return false;
+  const refusal = error.slice(RETRY_BLOCKED_PREFIX.length);
+  return SAVED_EXISTING_REACTION_ERRORS.has(refusal);
 }
 
 export { browserOutboxStorage } from "./outbox-storage";
