@@ -4,6 +4,8 @@ import {
   type CSSProperties,
   type ReactNode,
   type RefObject,
+  createContext,
+  useContext,
   useLayoutEffect,
   useRef,
   useState,
@@ -28,8 +30,9 @@ import messageStyles from "./Messages.module.css";
  * say: the dock's bottom, and the top edge of the view it reads over, in the
  * window. A top-level view's edge is its pane's, and the sheet stays 8rem
  * below the window's top; a view inside another sheet is that sheet's
- * padding box. CSS turns these into the sheet's maximum height. The dock's
- * height is the composer's, which the sheet folds into. */
+ * padding box, as tall as it is now. CSS turns these into the sheet's
+ * maximum height, and into how far details stretch to cover the sheet
+ * beneath. The dock's height is the composer's, which the sheet folds into. */
 function dockGeometry(dock: HTMLElement): CSSProperties {
   const box = dock.getBoundingClientRect();
   const outer = dock.parentElement?.closest<HTMLElement>(
@@ -109,6 +112,46 @@ function useDockGeometry(dock: HTMLElement, mounted: boolean) {
     };
   }, [dock, mounted]);
   return style;
+}
+
+/** A thread's sheet takes the height the details over its reply box read
+ * at, so it can grow to sit just behind them. */
+const CoveredSheetContext = createContext<
+  ((height: number | undefined) => void) | undefined
+>(undefined);
+
+/** Reports what the details read at to the sheet they are stacked over: their
+ * header, text and the composer's space, not their box, which stretches to
+ * cover that sheet. A panel doesn't report; the page sets `tall` for it. */
+function useCoveringHeight(
+  surface: HTMLElement | null,
+  content: RefObject<HTMLElement | null>,
+  composerSpace: RefObject<HTMLElement | null>,
+  report: ((height: number | undefined) => void) | undefined,
+) {
+  useLayoutEffect(() => {
+    const read = content.current;
+    const space = composerSpace.current;
+    if (!surface || !read || !space || !report) return;
+    const measure = () =>
+      report(
+        read.getBoundingClientRect().height +
+          space.getBoundingClientRect().height +
+          surface.offsetHeight -
+          surface.clientHeight,
+      );
+    measure();
+    const observer =
+      typeof ResizeObserver === "undefined"
+        ? undefined
+        : new ResizeObserver(measure);
+    observer?.observe(read);
+    observer?.observe(space);
+    return () => {
+      observer?.disconnect();
+      report(undefined);
+    };
+  }, [surface, content, composerSpace, report]);
 }
 
 const immediate = () =>
@@ -424,7 +467,9 @@ export function SheetRoot({
 /** A dialog that rises out of its view's composer, drawn in the composer's
  * dock and placed around it, which stays in place below it so a reply can be
  * written while reading. A thread brings its own reply box, which takes the
- * composer's place; a panel covers the composer at full height. */
+ * composer's place; a panel covers the composer at full height. Over a
+ * thread's reply box, either stacks over the thread's sheet, whose edge shows
+ * above it. */
 export function ComposerSheet({
   open,
   onOpenChange,
@@ -481,6 +526,16 @@ export function ComposerSheet({
   const style = useDockGeometry(dock, mounted);
   useCoveredComposer(composer, mounted, containsComposer, readerOnly);
   useComposerHandoff(surface, composer, open, containsComposer);
+  // Details stacked over this sheet's reply box, and how tall they read.
+  const [covering, setCovering] = useState<number>();
+  const content = useRef<HTMLDivElement | null>(null);
+  const composerSpace = useRef<HTMLDivElement | null>(null);
+  useCoveringHeight(
+    surface,
+    content,
+    composerSpace,
+    useContext(CoveredSheetContext),
+  );
   const popup = useRef<HTMLDivElement | null>(null);
   const backdrop = useRef<HTMLDivElement | null>(null);
   const grown = useRef<HTMLDivElement | null>(null);
@@ -511,7 +566,6 @@ export function ComposerSheet({
           ref={backdrop}
           forceRender
           className={styles.scrim}
-          data-panel={readerOnly || undefined}
           style={style.scrim}
         />
         <BaseDialog.Popup
@@ -530,10 +584,18 @@ export function ComposerSheet({
           data-contained-composer={containsComposer || undefined}
           data-reader-only={readerOnly || undefined}
           data-tall={tall || undefined}
+          data-covered={covering === undefined ? undefined : ""}
           // Threads and details fit their content and grow with it, up to the
           // maximum; a panel takes the full height (`data-reader-only`).
           data-height="content"
-          style={style.sheet}
+          style={
+            covering === undefined
+              ? style.sheet
+              : ({
+                  ...style.sheet,
+                  "--covering-height": `${covering}px`,
+                } as CSSProperties)
+          }
           // A thread places focus in its reply box; a reader takes it itself.
           initialFocus={containsComposer ? false : popup}
           finalFocus={focus.finalFocus}
@@ -550,7 +612,7 @@ export function ComposerSheet({
               : undefined
           }
         >
-          <div className={styles.content}>
+          <div ref={content} className={styles.content}>
             <SheetHeader
               title={title}
               description={description}
@@ -563,12 +625,23 @@ export function ComposerSheet({
               onSpotlightAnchor={onSpotlightAnchor}
             />
             <div className={`buzz-dialog-body ${styles.body}`}>
-              <div className={styles.reader}>{children}</div>
+              <div className={styles.reader}>
+                {/* Only a thread's sheet has a reply box to stack over. */}
+                <CoveredSheetContext
+                  value={containsComposer ? setCovering : undefined}
+                >
+                  {children}
+                </CoveredSheetContext>
+              </div>
             </div>
           </div>
           {/* The composer shows through here, inside the sheet's ring. */}
           {!containsComposer && !readerOnly && (
-            <div className={styles.composerSpace} aria-hidden="true" />
+            <div
+              ref={composerSpace}
+              className={styles.composerSpace}
+              aria-hidden="true"
+            />
           )}
         </BaseDialog.Popup>
       </BaseDialog.Portal>

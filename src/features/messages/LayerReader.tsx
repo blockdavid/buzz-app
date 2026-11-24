@@ -12,8 +12,9 @@ import { LayerAddressContext, type OpenLayer, layerInView } from "./view-layer";
 /** The layer of the view it is mounted in, when the address names one: a
  * details message, read from its id so it opens whether or not its row is on
  * screen, or a panel. It is a sheet over that view's composer (a panel's at
- * full height), or a centered dialog when the composer isn't on screen. The
- * address owns whether it is open. */
+ * full height), stacked over the inline thread when that is its view, or a
+ * centered dialog when the composer isn't on screen. The address owns whether
+ * it is open. */
 export function LayerReader({ channelId }: { channelId: string }) {
   const view = useComposerScope();
   const address = useContext(LayerAddressContext);

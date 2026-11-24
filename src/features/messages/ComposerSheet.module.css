@@ -34,17 +34,14 @@
   clip-path: inset(var(--scrim-inset));
   pointer-events: auto;
 }
-/* Inside another sheet, whose material places it, the scrim dims that
-   sheet below its header; a panel's dims the header too. */
+/* Inside another sheet, whose material places it, the scrim dims all of
+   that sheet, its header included. */
 .sheet .scrim {
-  inset: var(--thread-header-height) 0 0;
+  inset: 0;
   width: auto;
   height: auto;
   border-radius: 0;
   clip-path: none;
-}
-.sheet .scrim[data-panel] {
-  inset: 0;
 }
 .scrim:is([data-starting-style], [data-ending-style]) {
   opacity: 0;
@@ -65,6 +62,8 @@
   /* A thread's header: its compact controls inside its padding. */
   --thread-header-height: calc(2 * var(--space-4) + var(--size-control-sm));
   --sheet-header-height: var(--thread-header-height);
+  /* How much of a sheet shows above one stacked over it, border included. */
+  --sheet-strip: calc(var(--space-4) + var(--sheet-border-width));
   --sheet-top: max(8rem, calc(var(--view-top) + var(--space-4)));
   --sheet-max-height: calc(
     var(--dock-bottom) +
@@ -101,6 +100,8 @@
 
 /* Header and reading body; the composer's space stays below them. */
 .content {
+  /* The highest this sheet's top may reach, for a sheet stacked over it. */
+  --covered-sheet-top: var(--sheet-top);
   display: flex;
   flex: 0 1 auto;
   flex-direction: column;
@@ -289,7 +290,8 @@ html[data-keyboard-navigation] :is(.scrim, .content) {
 }
 
 /* A thread under a panel takes the full height, so the panel over its reply
-   box is not as small as a short thread; it settles back after. */
+   box is not as small as a short thread. Under details it grows only as far
+   as they read, so its edge shows just above them. It settles back after. */
 .sheet[data-contained-composer] {
   min-height: 0;
   transition: min-height var(--duration-settle) var(--easing-enter);
@@ -297,10 +299,21 @@ html[data-keyboard-navigation] :is(.scrim, .content) {
 .sheet[data-contained-composer][data-tall] {
   min-height: var(--sheet-max-height);
 }
-.sheet[data-contained-composer][data-tall] > .content,
-.sheet[data-contained-composer][data-tall] > .content > .body,
-.sheet[data-contained-composer][data-tall] > .content > .body > .reader,
-.sheet[data-contained-composer][data-tall]
+.sheet[data-contained-composer][data-covered] {
+  min-height: min(
+    var(--sheet-max-height),
+    calc(var(--covering-height) + var(--sheet-strip))
+  );
+}
+.sheet[data-contained-composer]:is([data-tall], [data-covered]) > .content,
+.sheet[data-contained-composer]:is([data-tall], [data-covered])
+  > .content
+  > .body,
+.sheet[data-contained-composer]:is([data-tall], [data-covered])
+  > .content
+  > .body
+  > .reader,
+.sheet[data-contained-composer]:is([data-tall], [data-covered])
   > .content
   > .body
   > .reader
@@ -413,12 +426,28 @@ html[data-keyboard-navigation] .sheet[data-height="stable"] {
   opacity: 1;
 }
 
-/* Over a composer inside another sheet, details stop below that sheet's
-   header, whose Close still closes both; a panel stacks tightly over it,
-   covering its header, and only a strip of the sheet beneath shows above. */
+/* Over a composer inside another sheet, a sheet stacks tightly over it,
+   covering its header, and only a strip of the sheet beneath shows above.
+   Details fit what they read, up to that strip below the highest the sheet
+   beneath may itself reach, which grows behind them; they are never shorter
+   than it is, so no more of it than the strip ever shows. A panel takes the
+   full height of the sheet beneath, which goes tall for it. */
 .sheet .sheet {
-  --sheet-top: calc(var(--view-top) + var(--thread-header-height));
+  --sheet-top: calc(var(--covered-sheet-top) + var(--sheet-strip));
+}
+.sheet .sheet:not([data-reader-only]) {
+  min-height: calc(
+    var(--dock-bottom) +
+    var(--sheet-gap) -
+    var(--view-top) -
+    var(--space-4)
+  );
 }
 .sheet .sheet[data-reader-only] {
   --sheet-top: calc(var(--view-top) + var(--space-4));
+}
+/* The reply box shows through at the bottom of details taller than they
+   read. */
+.sheet .sheet > .composerSpace {
+  margin-top: auto;
 }

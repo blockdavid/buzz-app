@@ -57,6 +57,45 @@ const showMore = (scope, text) =>
     .getByRole("button", { name: "Show more", exact: true });
 const close = (scope) =>
   scope.getByRole("button", { name: "Close", exact: true }).first();
+/** A peer's details message in `root`'s thread, read as `count` one-line
+ * paragraphs, so its height doesn't depend on where a font wraps. */
+const findings = (app, text, count, root) =>
+  app.append(
+    "primary",
+    "alpha",
+    [
+      text,
+      ...Array.from({ length: count }, (_, at) => `Finding ${at + 1}`),
+    ].join("\n\n"),
+    true,
+    false,
+    root.id,
+    undefined,
+    [["audience", "details"]],
+  );
+const height = (locator) =>
+  locator.evaluate((element) => element.getBoundingClientRect().height);
+/** How far a sheet is from the tallest it may be. */
+const room = (locator) =>
+  locator.evaluate(
+    (element) =>
+      Number.parseFloat(getComputedStyle(element).maxHeight) -
+      element.getBoundingClientRect().height,
+  );
+/** Whether `cover` is what a press on `control` would reach. */
+const covers = async (cover, control) =>
+  control.evaluate(
+    (element, over) => {
+      const box = element.getBoundingClientRect();
+      return over.contains(
+        document.elementFromPoint(
+          box.x + box.width / 2,
+          box.y + box.height / 2,
+        ),
+      );
+    },
+    await cover.elementHandle(),
+  );
 
 test.describe("Side panel", () => {
   test.use({ threadPlacement: "side" });
@@ -227,20 +266,64 @@ test.describe("Inline", () => {
     await page.reload();
     await expect(sheet(page)).toBeVisible();
     await expect(detailsSheet(page)).toBeVisible();
-    // Escape closes only the details; X on the thread closes both for good.
+    // Shorter than the thread, they still cover it, its header included.
+    await expect
+      .poll(() => covers(detailsSheet(page), close(sheet(page))))
+      .toBe(true);
+    // Escape closes only the details.
     await page.keyboard.press("Escape");
     await expect(detailsSheet(page)).toHaveCount(0);
     await expect(sheet(page)).toBeVisible();
-    await showMore(sheet(page), "Nested findings").click();
-    await expect(detailsSheet(page)).toBeVisible();
-    await sheet(page)
-      .getByRole("button", { name: "Close", exact: true })
-      .first()
-      .click();
-    await expect(sheet(page)).toHaveCount(0);
-    await expect(detailsSheet(page)).toHaveCount(0);
-    await page.goForward();
-    await expect(sheet(page)).toHaveCount(0);
+  });
+
+  test("details stack over a short thread at their own height; the thread grows behind them and settles back", async ({
+    page,
+    app,
+  }) => {
+    await open(page, app);
+    const [root] = roots(app);
+    await clickRow(page, viewThread(page, root));
+    // Taller than the thread, shorter than the tallest a sheet may be.
+    findings(app, "Long findings", 12, root);
+    await expect(showMore(sheet(page), "Long findings")).toBeVisible();
+    const short = await height(sheet(page));
+    await showMore(sheet(page), "Long findings").click();
+    const reader = detailsSheet(page);
+    await expect(reader).toBeVisible();
+    // The thread's top edge shows above them, and nothing else of it: they
+    // cover its header.
+    const edge = async () =>
+      reader.evaluate(
+        (element, under) =>
+          element.getBoundingClientRect().top -
+          under.getBoundingClientRect().top,
+        await sheet(page).elementHandle(),
+      );
+    await expect.poll(edge).toBeGreaterThan(0);
+    expect(await covers(reader, close(sheet(page)))).toBe(true);
+    // They read whole, taller than the thread was, without scrolling.
+    expect(await height(reader)).toBeGreaterThan(short);
+    expect(await room(reader)).toBeGreaterThan(1);
+    const scrolls = (sheet) =>
+      sheet
+        .locator(".buzz-dialog-body")
+        .evaluate((body) => body.scrollHeight > body.clientHeight);
+    expect(await scrolls(reader)).toBe(false);
+    // The thread's reply box stays usable under them.
+    await reply(sheet(page)).click();
+    await page.keyboard.type("Noted");
+    await expect(reader).toBeVisible();
+    // Closed, they leave the thread at its own height again.
+    await close(reader).click();
+    await expect(reader).toHaveCount(0);
+    await expect.poll(() => height(sheet(page))).toBeLessThanOrEqual(short + 1);
+    // Longer than a sheet may be, they stop at the limit and scroll.
+    findings(app, "Longest findings", 40, root);
+    await showMore(sheet(page), "Longest findings").click();
+    await expect(reader).toBeVisible();
+    await expect.poll(() => room(reader)).toBeLessThan(1);
+    expect(await scrolls(reader)).toBe(true);
+    await expect.poll(edge).toBeGreaterThan(0);
   });
 
   test("a thread sheet fits its content, starts at its header's edge and fades into its own surface", async ({
@@ -264,17 +347,14 @@ test.describe("Inline", () => {
       );
     await expect.poll(() => sheet(page).evaluate(lead)).toBeLessThan(4);
     // A short thread hugs its rows instead of taking the full height.
-    const room = (element) =>
-      Number.parseFloat(getComputedStyle(element).maxHeight) -
-      element.getBoundingClientRect().height;
-    await expect.poll(() => sheet(page).evaluate(room)).toBeGreaterThan(100);
+    await expect.poll(() => room(sheet(page))).toBeGreaterThan(100);
     await page.keyboard.press("Escape");
     await expect(sheet(page)).toHaveCount(0);
     for (let index = 0; index < 30; index++) app.reply(long.id, false, false);
     await clickRow(page, viewThread(page, long));
     await expect(sheet(page).getByText("Unread reply 1")).toBeVisible();
     // A long one grows to the maximum and reads up from its reply box.
-    await expect.poll(() => sheet(page).evaluate(room)).toBeLessThan(1);
+    await expect.poll(() => room(sheet(page))).toBeLessThan(1);
     await sheet(page)
       .locator("[data-message-scroller]")
       .evaluate((element) => {
