@@ -96,6 +96,15 @@ const covers = async (cover, control) =>
     },
     await cover.elementHandle(),
   );
+/** The thread's own header control, which details over it cover. */
+const headerControl = (page, label) =>
+  sheet(page).locator(`button[aria-label="${label}"]`).first();
+/** Whether `control` takes focus when given it. */
+const takesFocus = (control) =>
+  control.evaluate((element) => {
+    element.focus();
+    return document.activeElement === element;
+  });
 
 test.describe("Side panel", () => {
   test.use({ threadPlacement: "side" });
@@ -249,6 +258,8 @@ test.describe("Inline", () => {
     await clickRow(page, viewThread(page, root));
     await expect(sheet(page)).toBeVisible();
     details(app, "Nested findings", root);
+    await expect(showMore(sheet(page), "Nested findings")).toBeVisible();
+    const own = await height(sheet(page));
     await showMore(sheet(page), "Nested findings").click();
     await expect(detailsSheet(page)).toBeVisible();
     await expect(detailsSheet(page).getByText(filler.trim())).toBeVisible();
@@ -266,10 +277,12 @@ test.describe("Inline", () => {
     await page.reload();
     await expect(sheet(page)).toBeVisible();
     await expect(detailsSheet(page)).toBeVisible();
-    // Shorter than the thread, they still cover it, its header included.
+    // Shorter than the thread, which hasn't grown for them, they still cover
+    // it, its header included.
     await expect
       .poll(() => covers(detailsSheet(page), close(sheet(page))))
       .toBe(true);
+    expect(await height(sheet(page))).toBeLessThanOrEqual(own + 1);
     // Escape closes only the details.
     await page.keyboard.press("Escape");
     await expect(detailsSheet(page)).toHaveCount(0);
@@ -300,23 +313,29 @@ test.describe("Inline", () => {
         await sheet(page).elementHandle(),
       );
     await expect.poll(edge).toBeGreaterThan(0);
-    expect(await covers(reader, close(sheet(page)))).toBe(true);
+    await expect.poll(() => covers(reader, close(sheet(page)))).toBe(true);
+    // The header's controls can't be pressed there, so they take no focus.
+    for (const label of ["Close", "Move to side panel"])
+      expect(await takesFocus(headerControl(page, label))).toBe(false);
     // They read whole, taller than the thread was, without scrolling.
     expect(await height(reader)).toBeGreaterThan(short);
     expect(await room(reader)).toBeGreaterThan(1);
-    const scrolls = (sheet) =>
-      sheet
+    const scrolls = (surface) =>
+      surface
         .locator(".buzz-dialog-body")
         .evaluate((body) => body.scrollHeight > body.clientHeight);
     expect(await scrolls(reader)).toBe(false);
     // The thread's reply box stays usable under them.
     await reply(sheet(page)).click();
     await page.keyboard.type("Noted");
+    await expect(reply(sheet(page))).toContainText("Noted");
     await expect(reader).toBeVisible();
-    // Closed, they leave the thread at its own height again.
+    // Closed, they leave the thread at its own height again, its header's
+    // controls in reach.
     await close(reader).click();
     await expect(reader).toHaveCount(0);
     await expect.poll(() => height(sheet(page))).toBeLessThanOrEqual(short + 1);
+    expect(await takesFocus(headerControl(page, "Close"))).toBe(true);
     // Longer than a sheet may be, they stop at the limit and scroll.
     findings(app, "Longest findings", 40, root);
     await showMore(sheet(page), "Longest findings").click();

@@ -291,19 +291,25 @@ html[data-keyboard-navigation] :is(.scrim, .content) {
 
 /* A thread under a panel takes the full height, so the panel over its reply
    box is not as small as a short thread. Under details it grows only as far
-   as they read, so its edge shows just above them. It settles back after. */
+   as they read, so its edge shows just above them. It settles back after,
+   its rows and reply box staying where they rest while its top comes down
+   to them. */
 .sheet[data-contained-composer] {
+  justify-content: flex-end;
   min-height: 0;
   transition: min-height var(--duration-settle) var(--easing-enter);
 }
 .sheet[data-contained-composer][data-tall] {
   min-height: var(--sheet-max-height);
 }
+/* Script moves it to and from this height, from the height it has
+   (`useCovering`); the transition would start from 0. */
 .sheet[data-contained-composer][data-covered] {
   min-height: min(
     var(--sheet-max-height),
     calc(var(--covering-height) + var(--sheet-strip))
   );
+  transition: none;
 }
 .sheet[data-contained-composer]:is([data-tall], [data-covered]) > .content,
 .sheet[data-contained-composer]:is([data-tall], [data-covered])

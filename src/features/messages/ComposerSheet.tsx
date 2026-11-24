@@ -5,6 +5,7 @@ import {
   type ReactNode,
   type RefObject,
   createContext,
+  useCallback,
   useContext,
   useLayoutEffect,
   useRef,
@@ -154,6 +155,61 @@ function useCoveringHeight(
   }, [surface, content, composerSpace, report]);
 }
 
+/** The details over a thread's reply box, for the thread's sheet: how tall
+ * they read, and `report`, which they tell it through. CSS gives the sheet
+ * its height under them; this moves it there. The sheet grows from the height
+ * it has on the curve the details open on, so its old box never cuts them
+ * off, and once they close it settles from the height it grew to down to its
+ * own. A min-height transition does neither: it runs from 0, far below the
+ * sheet, which waits and then jumps. */
+function useCovering(popup: RefObject<HTMLElement | null>) {
+  const [covering, setCovering] = useState<number>();
+  const reported = useRef<number>(undefined);
+  // The sheet's height as details began or stopped covering it.
+  const before = useRef<number>(undefined);
+  const report = useCallback(
+    (height: number | undefined) => {
+      if ((height === undefined) !== (reported.current === undefined))
+        before.current = popup.current?.getBoundingClientRect().height;
+      reported.current = height;
+      setCovering(height);
+    },
+    [popup],
+  );
+  const covered = covering !== undefined;
+  useLayoutEffect(() => {
+    const element = popup.current;
+    const from = before.current;
+    before.current = undefined;
+    if (
+      !element ||
+      from === undefined ||
+      typeof element.animate !== "function" ||
+      immediate()
+    )
+      return;
+    const timing = growthTiming(element, covered);
+    let keyframes: Keyframe[];
+    if (covered) {
+      // No end keyframe: it ends where CSS has the sheet by then, which
+      // follows the details as what they read arrives.
+      keyframes = [{ minHeight: `${from}px`, offset: 0 }];
+      timing.easing = held(timing.easing);
+    } else {
+      // The sheet's own height, read without the panel's transition, which
+      // would start here from the height it had.
+      element.style.transition = "none";
+      const own = element.getBoundingClientRect().height;
+      element.style.transition = "";
+      if (from <= own) return;
+      keyframes = [{ minHeight: `${from}px` }, { minHeight: `${own}px` }];
+    }
+    const animation = element.animate(keyframes, timing);
+    return () => animation.cancel();
+  }, [popup, covered]);
+  return { covering, report };
+}
+
 const immediate = () =>
   window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ||
   document.documentElement.hasAttribute("data-keyboard-navigation");
@@ -166,6 +222,52 @@ const milliseconds = (value: string) =>
   value.endsWith("ms")
     ? Number.parseFloat(value)
     : Number.parseFloat(value) * 1000;
+
+/** How long a sheet takes to open or fold, and on what curve: a spring as it
+ * opens, where the engine can run one. */
+function growthTiming(element: Element, open: boolean) {
+  const duration = milliseconds(
+    token(
+      element,
+      open ? "--duration-settle" : "--duration-fast",
+      open ? "220ms" : "150ms",
+    ),
+  );
+  // Motion generates a native linear() spring curve for WAAPI.
+  const curve = spring({ duration, bounce: 0.25, keyframes: [0, 1] });
+  const springEasing = curve
+    .toString()
+    .slice(curve.toString().indexOf(" ") + 1);
+  return {
+    duration,
+    easing:
+      open && CSS.supports("animation-timing-function", springEasing)
+        ? springEasing
+        : token(element, "--easing-enter", "cubic-bezier(0.23, 1, 0.32, 1)"),
+  };
+}
+
+/** A linear() curve held at its end from where it first passes it. A sheet
+ * opening on the spring is whole from there on, its overshoot clipped away;
+ * what moves with it stops there too, rather than springing past. */
+function held(easing: string) {
+  const stops =
+    /^linear\((.*)\)$/.exec(easing)?.[1]?.split(",").map(Number) ?? [];
+  const over = stops.findIndex((stop) => stop > 1);
+  const last = stops[over - 1];
+  const next = stops[over];
+  if (last === undefined || next === undefined || stops.some(Number.isNaN))
+    return easing;
+  const step = 100 / (stops.length - 1);
+  const passes = (over - 1 + (1 - last) / (next - last)) * step;
+  return `linear(${[
+    ...stops
+      .slice(0, over)
+      .map((stop, index) => `${stop} ${(index * step).toFixed(2)}%`),
+    `1 ${passes.toFixed(2)}%`,
+    "1",
+  ].join(", ")})`;
+}
 
 /** Grows the sheet up out of the composer as it opens and folds it back down
  * into the composer as it closes. Base UI owns the unmount timing. A media
@@ -192,37 +294,14 @@ function useGrowth() {
     // Start at the composer's exact outline; the editor itself never scales.
     const folded = `inset(max(0px, calc(100% - ${composerHeight}px - ${gap})) ${gap} ${gap} round ${composerRadius})`;
     const expanded = `inset(0px 0px 0px round ${radius})`;
-    const duration = milliseconds(
-      token(
-        element,
-        open ? "--duration-settle" : "--duration-fast",
-        open ? "220ms" : "150ms",
-      ),
-    );
     const from = previous
       ? shownClip === "none"
         ? expanded
         : shownClip
       : folded;
-    // Motion generates a native linear() spring curve for WAAPI.
-    const curve = spring({ duration, bounce: 0.25, keyframes: [0, 1] });
-    const springEasing = curve
-      .toString()
-      .slice(curve.toString().indexOf(" ") + 1);
     last.current.animation = element.animate(
       [{ clipPath: from }, { clipPath: open ? expanded : folded }],
-      {
-        duration,
-        easing:
-          open && CSS.supports("animation-timing-function", springEasing)
-            ? springEasing
-            : token(
-                element,
-                "--easing-enter",
-                "cubic-bezier(0.23, 1, 0.32, 1)",
-              ),
-        fill: open ? "none" : "forwards",
-      },
+      { ...growthTiming(element, open), fill: open ? "none" : "forwards" },
     );
   };
 }
@@ -322,6 +401,7 @@ export function SheetHeader({
   closeLabel,
   headerActions,
   material,
+  covered,
   onMoveToTab,
   onOpenAsTab,
   spotlight,
@@ -334,6 +414,8 @@ export function SheetHeader({
   headerActions?: ReactNode;
   /** The progressive material behind it, for a reader that runs beneath. */
   material: boolean;
+  /** Details cover it: its actions can't be reached, so they take no focus. */
+  covered?: boolean | undefined;
   onMoveToTab?: (() => void) | undefined;
   onOpenAsTab?: (() => void) | undefined;
   spotlight?: InlineThreadIntroStep | undefined;
@@ -368,7 +450,7 @@ export function SheetHeader({
           </BaseDialog.Description>
         )}
       </div>
-      <div className="buzz-dialog-header-actions">
+      <div className="buzz-dialog-header-actions" inert={covered}>
         {headerActions}
         {onOpenAsTab && (
           <IconButton
@@ -526,8 +608,6 @@ export function ComposerSheet({
   const style = useDockGeometry(dock, mounted);
   useCoveredComposer(composer, mounted, containsComposer, readerOnly);
   useComposerHandoff(surface, composer, open, containsComposer);
-  // Details stacked over this sheet's reply box, and how tall they read.
-  const [covering, setCovering] = useState<number>();
   const content = useRef<HTMLDivElement | null>(null);
   const composerSpace = useRef<HTMLDivElement | null>(null);
   useCoveringHeight(
@@ -537,6 +617,8 @@ export function ComposerSheet({
     useContext(CoveredSheetContext),
   );
   const popup = useRef<HTMLDivElement | null>(null);
+  // Details stacked over this sheet's reply box, and how tall they read.
+  const { covering, report } = useCovering(popup);
   const backdrop = useRef<HTMLDivElement | null>(null);
   const grown = useRef<HTMLDivElement | null>(null);
   const focus = useFinalFocusUnlessMoved(finalFocus, undefined);
@@ -619,6 +701,7 @@ export function ComposerSheet({
               leading={leading}
               closeLabel={closeLabel}
               material={containsComposer || readerOnly}
+              covered={covering !== undefined}
               onMoveToTab={onMoveToTab}
               onOpenAsTab={onOpenAsTab}
               spotlight={spotlight}
@@ -628,7 +711,7 @@ export function ComposerSheet({
               <div className={styles.reader}>
                 {/* Only a thread's sheet has a reply box to stack over. */}
                 <CoveredSheetContext
-                  value={containsComposer ? setCovering : undefined}
+                  value={containsComposer ? report : undefined}
                 >
                   {children}
                 </CoveredSheetContext>
